@@ -1,15 +1,17 @@
 const { Router } = require("express");
 const express = require("express");
+const Contenedor = require("./Contenedor");
 const upload = require("./lib/multer");
 const app = express();
 const PORT = 8080;
 const router = new Router();
-let productos = require("./productos.json");
+const contenedor = new Contenedor();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 router.get("/", (req, res) => {
+  const productos = contenedor.getAll();
   res.status(200).json({
     ok: true,
     productos,
@@ -20,7 +22,7 @@ router.get("/:id", (req, res) => {
   const {
     params: { id },
   } = req;
-  const producto = productos.filter((prd) => prd.id == id);
+  const producto = contenedor.getById(id);
   if (!producto.length) {
     return res.status(400).json({
       ok: false,
@@ -35,19 +37,19 @@ router.get("/:id", (req, res) => {
 
 router.post("/", upload.single("foto"), (req, res) => {
   const { body } = req;
-  const id = productos.length > 0 ? productos[productos.length - 1].id + 1 : 1;
-  const nuevoProducto = {
-    title: body.title,
-    price: body.price,
-    thumbnail: req.file.originalname,
-    id,
-  };
-  productos.push(nuevoProducto);
-  res.status(201).json({
-    ok: true,
-    id,
-    info: "Se ha guardado un nuevo producto",
-  });
+  try {
+    const lastInsertId = contenedor.save(body, req.file.originalname);
+    res.status(201).json({
+      ok: true,
+      id: lastInsertId,
+      info: "Se ha guardado un nuevo producto",
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      error: error.message,
+    });
+  }
 });
 
 router.put("/:id", upload.single("foto"), (req, res) => {
@@ -55,31 +57,36 @@ router.put("/:id", upload.single("foto"), (req, res) => {
     body,
     params: { id },
   } = req;
-  const producto = productos.filter((prd) => prd.id == id);
-  if (!producto.length) {
-    return res.status(400).json({
+  body.filename = req.file.originalname;
+  try {
+    contenedor.update(body, id);
+    res.status(200).json({
+      ok: true,
+      id,
+      info: "Producto modificado",
+    });
+  } catch (error) {
+    res.status(400).json({
       ok: false,
-      error: "Producto no encontrado",
+      error: error.message,
     });
   }
-  producto[0].title = body.title;
-  producto[0].price = body.price;
-  producto[0].thumbnail = req.file.originalname;
-  res.status(200).json({
-    ok: true,
-    id,
-    info: "Producto modificado",
-  });
 });
 
 router.delete("/:id", (req, res) => {
   const { id } = req.params;
-  const productosUpgrade = productos.filter((prd) => prd.id != id);
-  productos = productosUpgrade;
-  res.status(200).json({
-    ok: true,
-    info: "Producto eliminado",
-  });
+  try {
+    contenedor.deleteById(id);
+    res.status(200).json({
+      ok: true,
+      info: "Producto eliminado",
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      error: error.message,
+    });
+  }
 });
 
 app.use("/api/productos", router);
