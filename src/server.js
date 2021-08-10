@@ -5,40 +5,47 @@ const upload = require("./lib/multer");
 const app = express();
 const PORT = 8080;
 const router = new Router();
-const contenedor = new Contenedor();
+const contenedor = new Contenedor("./src/productos.json");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-router.get("/", (req, res) => {
-  const productos = contenedor.getAll();
+router.get("/", async (req, res) => {
+  const productos = await contenedor.getAll();
   res.status(200).json({
     ok: true,
     productos,
   });
 });
 
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   const {
     params: { id },
   } = req;
-  const producto = contenedor.getById(id);
-  if (!producto.length) {
-    return res.status(400).json({
+  const producto = await contenedor.getById(id);
+  try {
+    if (!producto.length) {
+      return res.status(400).json({
+        ok: false,
+        error: "Producto no encontrado",
+      });
+    }
+    res.status(200).json({
+      ok: true,
+      producto,
+    });
+  } catch (error) {
+    res.status(400).json({
       ok: false,
-      error: "Producto no encontrado",
+      error: error.message,
     });
   }
-  res.status(200).json({
-    ok: true,
-    producto,
-  });
 });
 
-router.post("/", upload.single("foto"), (req, res) => {
+router.post("/", upload.single("foto"), async (req, res) => {
   const { body } = req;
   try {
-    const lastInsertId = contenedor.save(body, req.file.originalname);
+    const lastInsertId = await contenedor.save(body, req.file.originalname);
     res.status(201).json({
       ok: true,
       id: lastInsertId,
@@ -52,14 +59,14 @@ router.post("/", upload.single("foto"), (req, res) => {
   }
 });
 
-router.put("/:id", upload.single("foto"), (req, res) => {
+router.put("/:id", upload.single("foto"), async (req, res) => {
   const {
     body,
     params: { id },
   } = req;
-  body.filename = req.file.originalname;
+  body.foto = req.file.originalname;
   try {
-    contenedor.update(body, id);
+    await contenedor.update(body, id);
     res.status(200).json({
       ok: true,
       id,
@@ -73,10 +80,10 @@ router.put("/:id", upload.single("foto"), (req, res) => {
   }
 });
 
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    contenedor.deleteById(id);
+    await contenedor.deleteById(id);
     res.status(200).json({
       ok: true,
       info: "Producto eliminado",

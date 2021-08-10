@@ -1,56 +1,100 @@
-let productos = require("./productos.json");
+const fs = require("fs");
 
 class Contenedor {
-  save(data, filename) {
-    try {
-      const id =
-        productos.length > 0 ? productos[productos.length - 1].id + 1 : 1;
-      const nuevoProducto = {
-        title: data.title,
-        price: data.price,
-        thumbnail: filename,
-        id,
-      };
-      productos.push(nuevoProducto);
-      return id;
-    } catch (error) {
-      throw new Error(error);
-    }
+  constructor(nameFile) {
+    this.nameFile = nameFile;
   }
 
-  update(data, id) {
+  async save(data, foto) {
     try {
-      const producto = productos.filter((prd) => prd.id == id);
-      if (!producto.length) {
-        throw new Error("Producto no encontrado");
+      let contenido = await fs.promises.readFile(this.nameFile, "utf-8");
+      data.id = 1;
+      if (contenido != "") {
+        contenido = JSON.parse(contenido);
+        data.id = contenido[contenido.length - 1].id + 1;
       }
-      producto[0].title = data.title;
-      producto[0].price = data.price;
-      producto[0].thumbnail = data.filename;
-      return true;
+      let array = [
+        ...contenido,
+        {
+          title: data.title,
+          price: data.price,
+          thumbnail: foto,
+          id: data.id,
+        },
+      ];
+      await fs.promises.writeFile(
+        this.nameFile,
+        JSON.stringify(array, null, 2)
+      );
+      console.log(`subido el producto ${data.title}`);
+      return data.id;
     } catch (error) {
       throw new Error(error);
     }
   }
 
-  getById(id) {
+  async update(data, id) {
     try {
-      const producto = productos.filter((prd) => prd.id == id);
-      return producto;
+      let contenido = await fs.promises.readFile(this.nameFile, "utf-8");
+      contenido = JSON.parse(contenido);
+      let index = null;
+      let producto = null;
+      contenido.map((prd, key) => {
+        if (prd.id == id) {
+          producto = prd;
+          index = key;
+          return;
+        }
+      });
+      //console.log(producto);
+
+      producto.title = data.title;
+      producto.price = data.price;
+      producto.thumbnail = data.foto;
+
+      contenido[index] = producto;
+      await fs.promises.writeFile(
+        this.nameFile,
+        JSON.stringify(contenido, null, 2)
+      );
+      return;
     } catch (error) {
       throw new Error(error);
     }
   }
 
-  getAll() {
-    return productos;
+  async getById(id) {
+    try {
+      let contentFile = await fs.promises.readFile(this.nameFile, "utf-8");
+      contentFile = JSON.parse(contentFile);
+      return contentFile.filter((item) => item.id == id);
+    } catch (error) {
+      throw new Error(error);
+    }
   }
 
-  deleteById(id) {
+  async getAll() {
     try {
-      const productosUpgrade = productos.filter((prd) => prd.id != id);
-      productos = productosUpgrade;
-      return true;
+      let content = await fs.promises.readFile(this.nameFile, "utf-8");
+      if (content == "") return [];
+      return JSON.parse(content);
+    } catch (error) {
+      throw new Error(error);
+    }
+  }
+
+  async deleteById(id) {
+    try {
+      let contentFile = await fs.promises.readFile(this.nameFile, "utf-8");
+      if (contentFile == "") return "Nada para eliminar";
+      contentFile = JSON.parse(contentFile);
+      let nuevoContenido = contentFile.filter((item) => item.id != id);
+      nuevoContenido =
+        nuevoContenido.length == 0
+          ? ""
+          : JSON.stringify(nuevoContenido, null, 2);
+      await fs.promises.writeFile(this.nameFile, nuevoContenido);
+      return;
     } catch (error) {
       throw new Error(error);
     }
